@@ -267,7 +267,7 @@ pub fn run() {
                 use tauri::ActivationPolicy;
                 app.set_activation_policy(ActivationPolicy::Accessory);
 
-                use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior, NSColor};
+                use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior, NSColor, NSWindowStyleMask, NSWindowTitleVisibility};
                 use cocoa::base::{id, nil};
 
                 if let Some(window) = app.get_webview_window("main") {
@@ -280,6 +280,14 @@ pub fn run() {
                         // Force Transparency
                         ns_window.setOpaque_(cocoa::base::NO);
                         ns_window.setBackgroundColor_(NSColor::clearColor(nil));
+                        ns_window.setHasShadow_(cocoa::base::NO);
+
+                        // Ensure style mask allows full size content
+                        let style_mask = ns_window.styleMask() | NSWindowStyleMask::NSFullSizeContentViewWindowMask;
+                        ns_window.setStyleMask_(style_mask);
+
+                        ns_window.setTitlebarAppearsTransparent_(cocoa::base::YES);
+                        ns_window.setTitleVisibility_(NSWindowTitleVisibility::NSWindowTitleHidden);
                         
                         // Set Collection Behavior: CanJoinAllSpaces (1<<0) | Stationary (1<<4) | IgnoresCycle (1<<6)
                         // This makes it visible on all desktops and not participate in window cycling
