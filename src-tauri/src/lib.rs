@@ -97,6 +97,8 @@ struct AppLockState {
     unlock_wait_time: f32, // Wait time in seconds before progress starts
     unlock_hold_time: f32, // Hold time in seconds to complete unlock
     enable_hover_unlock: bool, // Enable/disable hover unlock feature
+    enable_auto_lock: bool, // Enable/disable auto-lock when idle after unlock
+    auto_lock_delay: f32, // Delay in seconds before auto-locking (when no movement after unlock)
 }
 
 // HTTP endpoint handlers
@@ -192,8 +194,29 @@ async fn set_hover_unlock_enabled(
     Ok(())
 }
 
+// Tauri command to enable/disable auto-lock from frontend
+#[tauri::command]
+async fn set_auto_lock_enabled(
+    state: tauri::State<'_, Arc<Mutex<AppLockState>>>,
+    enabled: bool
+) -> Result<(), String> {
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+    s.enable_auto_lock = enabled;
+    Ok(())
+}
 
-// Tauri command to open settings window
+// Tauri command to set auto-lock delay from frontend
+#[tauri::command]
+async fn set_auto_lock_delay(
+    state: tauri::State<'_, Arc<Mutex<AppLockState>>>,
+    delay: f32
+) -> Result<(), String> {
+    let mut s = state.lock().map_err(|e| e.to_string())?;
+    s.auto_lock_delay = delay;
+    Ok(())
+}
+
+
 #[tauri::command]
 async fn open_settings_window(app: AppHandle) -> Result<(), String> {
     // Check if settings window already exists
@@ -244,6 +267,8 @@ pub fn run() {
         unlock_wait_time: 1.2, // Default: 1.2 seconds
         unlock_hold_time: 3.0, // Default: 3 seconds
         enable_hover_unlock: true, // Default: enabled
+        enable_auto_lock: true, // Default: enabled
+        auto_lock_delay: 3.0, // Default: 3 seconds
     }));
 
     tauri::Builder::default()
@@ -375,11 +400,16 @@ pub fn run() {
             std::thread::spawn(move || {
                 let mut was_hovering = false;
                 
-                // For idle detection
+                // For idle detection (hover unlock)
                 let mut last_mouse_x = 0;
                 let mut last_mouse_y = 0;
                 let mut idle_ticks = 0;
                 let _max_idle_ticks = 30; // 30 * 100ms = 3 seconds
+
+                // For auto-lock (window position tracking)
+                let mut last_window_x: i32 = 0;
+                let mut last_window_y: i32 = 0;
+                let mut auto_lock_idle_ticks: i32 = 0;
 
                 loop {
                     std::thread::sleep(Duration::from_millis(100)); // Poll every 100ms
@@ -534,6 +564,80 @@ pub fn run() {
                         last_mouse_x = current_x;
                         last_mouse_y = current_y;
                     }
+
+                    // 3. Auto-lock logic: Lock automatically after idle when unlocked
+                    let (is_locked_now, enable_auto_lock, auto_lock_delay) = loop_lock_state.lock()
+                        .map(|s| (s.is_locked, s.enable_auto_lock, s.auto_lock_delay))
+                        .unwrap_or((true, true, 3.0));
+                    
+                    if !is_locked_now && enable_auto_lock {
+                        // Get current window position
+                        let mut current_win_x: i32 = 0;
+                        let mut current_win_y: i32 = 0;
+                        
+                        #[cfg(target_os = "windows")]
+                        {
+                            if let Some(window) = loop_app_handle.get_webview_window("main") {
+                                if let Ok(pos) = window.outer_position() {
+                                    current_win_x = pos.x;
+                                    current_win_y = pos.y;
+                                }
+                            }
+                        }
+                        
+                        #[cfg(target_os = "macos")]
+                        {
+                            if let Some(window) = loop_app_handle.get_webview_window("main") {
+                                if let Ok(pos) = window.outer_position() {
+                                    current_win_x = pos.x;
+                                    current_win_y = pos.y;
+                                }
+                            }
+                        }
+                        
+                        // Check if window position changed
+                        if current_win_x == last_window_x && current_win_y == last_window_y {
+                            auto_lock_idle_ticks += 1;
+                        } else {
+                            // Window moved -> reset counter
+                            auto_lock_idle_ticks = 0;
+                            last_window_x = current_win_x;
+                            last_window_y = current_win_y;
+                        }
+                        
+                        // Calculate required ticks (100ms per tick)
+                        let required_ticks = (auto_lock_delay * 10.0) as i32;
+                        
+                        if auto_lock_idle_ticks >= required_ticks {
+                            // Trigger auto-lock
+                            if let Ok(mut state) = loop_lock_state.lock() {
+                                state.is_locked = true;
+                                let _ = loop_app_handle.emit("lock-state-update", true);
+                                auto_lock_idle_ticks = 0;
+                            }
+                        }
+                    } else {
+                        // Locked or auto-lock disabled -> reset counter and update position
+                        auto_lock_idle_ticks = 0;
+                        #[cfg(target_os = "windows")]
+                        {
+                            if let Some(window) = loop_app_handle.get_webview_window("main") {
+                                if let Ok(pos) = window.outer_position() {
+                                    last_window_x = pos.x;
+                                    last_window_y = pos.y;
+                                }
+                            }
+                        }
+                        #[cfg(target_os = "macos")]
+                        {
+                            if let Some(window) = loop_app_handle.get_webview_window("main") {
+                                if let Ok(pos) = window.outer_position() {
+                                    last_window_x = pos.x;
+                                    last_window_y = pos.y;
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -546,6 +650,8 @@ pub fn run() {
             set_lock_state,
             set_unlock_timing,
             set_hover_unlock_enabled,
+            set_auto_lock_enabled,
+            set_auto_lock_delay,
             get_system_fonts
         ])
 

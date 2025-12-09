@@ -79,6 +79,10 @@ const defaultSettings = {
   unlockWaitTime: 1.2, // 대기 시간 (초)
   unlockHoldTime: 3.0, // 홀드 시간 (초)
 
+  // Auto-lock (자동 잠금)
+  enableAutoLock: true, // 자동 잠금 활성화
+  autoLockDelay: 3.0, // 자동 잠금 지연 시간 (초)
+
   // Album Art Customization
   albumArtSize: 36, // px
   albumArtBorderRadius: 8, // px
@@ -211,6 +215,9 @@ const strings = {
     enableHoverUnlock: "호버로 잠금해제",
     unlockWaitTime: "대기 시간",
     unlockHoldTime: "홀드 시간",
+    // Auto-lock
+    enableAutoLock: "자동 잠금",
+    autoLockDelay: "자동 잠금 지연",
     // Album Art
     albumArtSection: "앨범아트",
     albumArtSize: "크기",
@@ -335,6 +342,9 @@ const strings = {
     enableHoverUnlock: "Hover to Unlock",
     unlockWaitTime: "Wait Time",
     unlockHoldTime: "Hold Time",
+    // Auto-lock
+    enableAutoLock: "Auto Lock",
+    autoLockDelay: "Auto Lock Delay",
     // Album Art
     albumArtSection: "Album Art",
     albumArtSize: "Size",
@@ -518,6 +528,23 @@ function App() {
       }).catch(console.error);
     }
   }, [settings.enableHoverUnlock, isSettingsWindow]);
+
+  // Sync auto-lock settings
+  useEffect(() => {
+    if (!isSettingsWindow) {
+      invoke("set_auto_lock_enabled", {
+        enabled: settings.enableAutoLock
+      }).catch(console.error);
+    }
+  }, [settings.enableAutoLock, isSettingsWindow]);
+
+  useEffect(() => {
+    if (!isSettingsWindow) {
+      invoke("set_auto_lock_delay", {
+        delay: settings.autoLockDelay
+      }).catch(console.error);
+    }
+  }, [settings.autoLockDelay, isSettingsWindow]);
 
   // Drag functionality - only when unlocked
   const handleMouseDown = useCallback(
@@ -1529,6 +1556,36 @@ function SettingsPanel({
                       />
                     </div>
                   </>
+                )}
+
+                {/* Auto Lock Toggle */}
+                <div className="ios-item">
+                  <span>{t.enableAutoLock}</span>
+                  <label className="toggle-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={settings.enableAutoLock}
+                      onChange={(e) => updateSetting("enableAutoLock", e.target.checked)}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+                {/* Auto Lock Delay slider - only show when enabled */}
+                {settings.enableAutoLock && (
+                  <div className="ios-item column">
+                    <div className="item-row">
+                      <span>{t.autoLockDelay}</span>
+                      <span className="value-text">{settings.autoLockDelay.toFixed(1)}{t.seconds}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="0.5"
+                      value={settings.autoLockDelay}
+                      onChange={(e) => updateSetting("autoLockDelay", parseFloat(e.target.value))}
+                    />
+                  </div>
                 )}
               </div>
             </section>
