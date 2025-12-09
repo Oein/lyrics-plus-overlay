@@ -43,8 +43,8 @@ body,
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  /* Fixed gap between Track Info and Lyrics Box */
+  gap: var(--section-gap, 8px);
+  /* Gap between Track Info and Lyrics Box - controlled by settings */
   padding: 12px;
   /* Fixed padding */
   cursor: default;

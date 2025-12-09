@@ -77,6 +77,14 @@ const defaultSettings = {
   // Unlock Timing (seconds)
   unlockWaitTime: 1.2, // 대기 시간 (초)
   unlockHoldTime: 3.0, // 홀드 시간 (초)
+
+  // Album Art Customization
+  albumArtSize: 36, // px
+  albumArtBorderRadius: 8, // px
+
+  // Layout Customization
+  overlayMaxWidth: 500, // px (0 = no limit)
+  sectionGap: 8, // gap between track info and lyrics
 };
 
 // Settings Tab Categories
@@ -201,6 +209,14 @@ const strings = {
     unlockTimingSection: "잠금해제 시간",
     unlockWaitTime: "대기 시간",
     unlockHoldTime: "홀드 시간",
+    // Album Art
+    albumArtSection: "앨범아트",
+    albumArtSize: "크기",
+    albumArtBorderRadius: "모서리 둥글기",
+    // Layout
+    overlayMaxWidth: "최대 너비",
+    sectionGap: "섹션 간격",
+    noLimit: "제한 없음",
   },
   en: {
     // Tabs
@@ -316,6 +332,14 @@ const strings = {
     unlockTimingSection: "Unlock Timing",
     unlockWaitTime: "Wait Time",
     unlockHoldTime: "Hold Time",
+    // Album Art
+    albumArtSection: "Album Art",
+    albumArtSize: "Size",
+    albumArtBorderRadius: "Corner Radius",
+    // Layout
+    overlayMaxWidth: "Max Width",
+    sectionGap: "Section Gap",
+    noLimit: "No limit",
   },
 };
 
@@ -743,6 +767,8 @@ function App() {
           "--original-font": settings.originalFontFamily || "inherit",
           "--phonetic-font": settings.phoneticFontFamily || "inherit",
           "--translation-font": settings.translationFontFamily || "inherit",
+          "--section-gap": `${settings.sectionGap}px`,
+          maxWidth: settings.overlayMaxWidth > 0 ? `${settings.overlayMaxWidth}px` : "none",
         } as React.CSSProperties
       }
     >
@@ -865,94 +891,124 @@ function App() {
         )}
       </div>
 
-      {/* Dynamic Element Rendering based on elementOrder */}
-      {settings.elementOrder.map((element) => {
-        switch (element) {
-          case "trackInfo":
-            // Track Info - With Next Track Transition
-            if (!settings.showTrackInfo || (!track && !(settings.showNextTrack && nextTrack))) {
-              return null;
-            }
-            return (
-              <div
-                key="trackInfo"
-                className="track-info-line"
-                style={{
-                  animation: "fadeIn 0.4s ease",
-                }}
-              >
-                {showNextTrackInfo && nextTrack ? (
-                  // Next Track Info
-                  <>
-                    {nextTrack.albumArt && (
-                      <img src={nextTrack.albumArt} alt="" className="album-art" />
-                    )}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "1px", minWidth: 0, flex: 1 }}>
-                      <span style={{
-                        fontSize: "10px",
-                        color: "rgba(255,255,255,0.5)",
-                        fontWeight: 500,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.5px"
-                      }}>
-                        {t.nextTrackLabel}
-                      </span>
-                      <span className="track-text" style={{ marginTop: "1px" }}>
-                        {nextTrack.artist} - {nextTrack.title}
-                      </span>
-                    </div>
-                  </>
-                ) : track ? (
-                  // Current Track Info
-                  <>
-                    {track.albumArt && (
-                      <img src={track.albumArt} alt="" className="album-art" />
-                    )}
-                    <span className="track-text">
-                      {track.artist} - {track.title}
-                    </span>
-                  </>
-                ) : null}
-              </div>
-            );
+      {/* Render elements based on elementOrder */}
+      {(() => {
+        // Find trackInfo position in order
+        const trackInfoIndex = settings.elementOrder.indexOf("trackInfo");
+        const lyricsElements = settings.elementOrder.filter(e => e !== "trackInfo");
 
-          case "original":
-            if (!settings.showOriginal || !display?.main) return null;
-            return (
-              <div
-                key="original"
-                className={`lyrics-box anim-${settings.animationType}`}
-              >
-                <div className="lyric-line original">{display.main}</div>
-              </div>
-            );
-
-          case "phonetic":
-            if (!settings.showPhonetic || !display?.phonetic) return null;
-            return (
-              <div
-                key="phonetic"
-                className={`lyrics-box anim-${settings.animationType}`}
-              >
-                <div className="lyric-line phonetic">{display.phonetic}</div>
-              </div>
-            );
-
-          case "translation":
-            if (!settings.showTranslation || !display?.translation) return null;
-            return (
-              <div
-                key="translation"
-                className={`lyrics-box anim-${settings.animationType}`}
-              >
-                <div className="lyric-line translation">{display.translation}</div>
-              </div>
-            );
-
-          default:
+        // Render track info at its position, and lyrics box content in order
+        const renderTrackInfo = () => {
+          if (!settings.showTrackInfo || (!track && !(settings.showNextTrack && nextTrack))) {
             return null;
+          }
+          return (
+            <div
+              key="trackInfo"
+              className="track-info-line"
+              style={{ animation: "fadeIn 0.4s ease" }}
+            >
+              {showNextTrackInfo && nextTrack ? (
+                <>
+                  {nextTrack.albumArt && (
+                    <img
+                      src={nextTrack.albumArt}
+                      alt=""
+                      className="album-art"
+                      style={{
+                        width: `${settings.albumArtSize}px`,
+                        height: `${settings.albumArtSize}px`,
+                        borderRadius: `${settings.albumArtBorderRadius}px`,
+                      }}
+                    />
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1px", minWidth: 0, flex: 1 }}>
+                    <span style={{
+                      fontSize: "10px",
+                      color: "rgba(255,255,255,0.5)",
+                      fontWeight: 500,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px"
+                    }}>
+                      {t.nextTrackLabel}
+                    </span>
+                    <span className="track-text" style={{ marginTop: "1px" }}>
+                      {nextTrack.artist} - {nextTrack.title}
+                    </span>
+                  </div>
+                </>
+              ) : track ? (
+                <>
+                  {track.albumArt && (
+                    <img
+                      src={track.albumArt}
+                      alt=""
+                      className="album-art"
+                      style={{
+                        width: `${settings.albumArtSize}px`,
+                        height: `${settings.albumArtSize}px`,
+                        borderRadius: `${settings.albumArtBorderRadius}px`,
+                      }}
+                    />
+                  )}
+                  <span className="track-text">
+                    {track.artist} - {track.title}
+                  </span>
+                </>
+              ) : null}
+            </div>
+          );
+        };
+
+        const renderLyricsBox = () => {
+          if (!display) return null;
+
+          // Render lyrics elements in order
+          const lyricsContent = lyricsElements.map(element => {
+            switch (element) {
+              case "original":
+                if (!settings.showOriginal || !display.main) return null;
+                return <div key="original" className="lyric-line original">{display.main}</div>;
+              case "phonetic":
+                if (!settings.showPhonetic || !display.phonetic) return null;
+                return <div key="phonetic" className="lyric-line phonetic">{display.phonetic}</div>;
+              case "translation":
+                if (!settings.showTranslation || !display.translation) return null;
+                return <div key="translation" className="lyric-line translation">{display.translation}</div>;
+              default:
+                return null;
+            }
+          }).filter(Boolean);
+
+          if (lyricsContent.length === 0) return null;
+
+          return (
+            <div
+              key={activeLine?.startTime || "empty"}
+              className={`lyrics-box anim-${settings.animationType}`}
+            >
+              {lyricsContent}
+            </div>
+          );
+        };
+
+        // Determine render order: trackInfo before or after lyrics
+        if (trackInfoIndex === 0) {
+          return (
+            <>
+              {renderTrackInfo()}
+              {renderLyricsBox()}
+            </>
+          );
+        } else {
+          return (
+            <>
+              {renderLyricsBox()}
+              {renderTrackInfo()}
+            </>
+          );
         }
-      })}
+      })()}
 
       {/* Waiting Indicator */}
       {!display && !track && !settings.isLocked && (
@@ -1522,6 +1578,80 @@ function SettingsPanel({
                     value={settings.lineGap}
                     onChange={(e) =>
                       updateSetting("lineGap", parseInt(e.target.value))
+                    }
+                  />
+                </div>
+                {/* Section Gap */}
+                <div className="ios-item column">
+                  <div className="item-row">
+                    <span>{t.sectionGap}</span>
+                    <span className="value-text">{settings.sectionGap}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="24"
+                    value={settings.sectionGap}
+                    onChange={(e) =>
+                      updateSetting("sectionGap", parseInt(e.target.value))
+                    }
+                  />
+                </div>
+                {/* Max Width */}
+                <div className="ios-item column">
+                  <div className="item-row">
+                    <span>{t.overlayMaxWidth}</span>
+                    <span className="value-text">
+                      {settings.overlayMaxWidth === 0 ? t.noLimit : `${settings.overlayMaxWidth}px`}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1200"
+                    step="50"
+                    value={settings.overlayMaxWidth}
+                    onChange={(e) =>
+                      updateSetting("overlayMaxWidth", parseInt(e.target.value))
+                    }
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Album Art Section */}
+            <section className="ios-section">
+              <div className="section-header">{t.albumArtSection}</div>
+              <div className="ios-list">
+                {/* Album Art Size */}
+                <div className="ios-item column">
+                  <div className="item-row">
+                    <span>{t.albumArtSize}</span>
+                    <span className="value-text">{settings.albumArtSize}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="24"
+                    max="64"
+                    value={settings.albumArtSize}
+                    onChange={(e) =>
+                      updateSetting("albumArtSize", parseInt(e.target.value))
+                    }
+                  />
+                </div>
+                {/* Album Art Border Radius */}
+                <div className="ios-item column">
+                  <div className="item-row">
+                    <span>{t.albumArtBorderRadius}</span>
+                    <span className="value-text">{settings.albumArtBorderRadius}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="32"
+                    value={settings.albumArtBorderRadius}
+                    onChange={(e) =>
+                      updateSetting("albumArtBorderRadius", parseInt(e.target.value))
                     }
                   />
                 </div>
